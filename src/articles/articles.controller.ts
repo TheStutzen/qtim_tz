@@ -10,6 +10,7 @@ import {
   UsePipes,
   ValidationPipe,
   Req,
+  Query,
 } from '@nestjs/common';
 import { ArticlesService } from './articles.service';
 import { CreateArticleDto } from './dto/create-article.dto';
@@ -57,7 +58,11 @@ export class ArticlesController {
   }
 
   @Get('author/:id')
-  findAuthor(@Param('id') id: string) {
-    return this.articlesService.findAuthor(+id);
+  async findAuthor(
+    @Param('id') id: number,
+    @Query('page') page?: number,
+    @Query('perPage') perPage?: number,
+  ) {
+    return this.articlesService.findAuthor(id, page, perPage);
   }
 }

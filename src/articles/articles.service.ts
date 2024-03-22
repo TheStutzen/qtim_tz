@@ -92,10 +92,15 @@ export class ArticlesService {
     return articles;
   }
 
-  async findAuthor(id: number): Promise<any> {
-    const authorWithArticles = await this.articleRepository
+  async findAuthor(id: number, page?: number, perPage?: number): Promise<any> {
+    const realPage = page || 1;
+    const realPerPage = perPage || 10;
+
+    const skip = (realPage - 1) * realPerPage;
+
+    const [authorWithArticles, totalCount] = await this.articleRepository
       .createQueryBuilder('article')
-      .leftJoin('article.user', 'user')
+      .leftJoinAndSelect('article.user', 'user')
       .select([
         'user.id',
         'user.firstName',
@@ -106,12 +111,20 @@ export class ArticlesService {
         'article.createdAt',
       ])
       .where('user.id = :id', { id })
-      .getMany();
+      .skip(skip)
+      .take(realPerPage)
+      .getManyAndCount();
 
     if (!authorWithArticles.length) {
       throw new NotFoundException('У пользователя нет статей!');
     }
 
-    return authorWithArticles;
+    return {
+      data: authorWithArticles,
+      totalCount,
+      currentPage: realPage,
+      perPage: realPerPage,
+      totalPages: Math.ceil(totalCount / realPerPage),
+    };
   }
 }
