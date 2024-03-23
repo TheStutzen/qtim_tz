@@ -8,3 +8,12 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
       - "5432:5432"
+  redis:
+    image: redis:7.2-alpine
+    container_name: redis-test
+    ports:
+      - "6379:6379"
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASS?:error}
+      - REDIS_PORT=6379
+    command: redis-server --requirepass  ${REDIS_PASS?:error}

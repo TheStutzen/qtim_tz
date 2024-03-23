@@ -6,12 +6,14 @@ import { UsersModule } from './users/users.module';
 import { ArticlesModule } from './articles/articles.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { RedisModule } from './redis/redis.module';
 
 @Module({
   imports: [
     AuthModule,
     UsersModule,
     ArticlesModule,
+    RedisModule,
     ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],

@@ -8,12 +8,14 @@ import { UpdateArticleDto } from './dto/update-article.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Article } from './entities/article.entity';
 import { Repository } from 'typeorm';
+import { RedisCacheService } from 'src/redis/redis.service';
 
 @Injectable()
 export class ArticlesService {
   constructor(
     @InjectRepository(Article)
     private readonly articleRepository: Repository<Article>,
+    private readonly redisCacheService: RedisCacheService,
   ) {}
 
   async create(createArticleDto: CreateArticleDto, id: number) {
@@ -64,9 +66,20 @@ export class ArticlesService {
       where: { id },
     });
 
-    if (!article) throw new NotFoundException('Статья не найдена');
+    if (!article) {
+      throw new NotFoundException('Статья не найдена');
+    }
 
-    return await this.articleRepository.update(id, updateArticleDto);
+    await this.articleRepository.update(id, updateArticleDto);
+
+    await this.redisCacheService.delete(`article_${id}`);
+
+    const updatedArticle = await this.articleRepository.findOne({
+      where: { id },
+    });
+    await this.redisCacheService.set(`article_${id}`, updatedArticle);
+
+    return updatedArticle;
   }
 
   async remove(id: number) {
@@ -74,9 +87,15 @@ export class ArticlesService {
       where: { id },
     });
 
-    if (!article) throw new NotFoundException('Статья не найдена');
+    if (!article) {
+      throw new NotFoundException('Статья не найдена');
+    }
 
-    return await this.articleRepository.delete(id);
+    await this.articleRepository.delete(id);
+
+    await this.redisCacheService.delete(`article_${id}`);
+
+    return 'Статья удалена';
   }
 
   async findDate(date: string): Promise<Article[]> {
@@ -95,36 +114,46 @@ export class ArticlesService {
   async findAuthor(id: number, page?: number, perPage?: number): Promise<any> {
     const realPage = page || 1;
     const realPerPage = perPage || 10;
-
     const skip = (realPage - 1) * realPerPage;
 
-    const [authorWithArticles, totalCount] = await this.articleRepository
-      .createQueryBuilder('article')
-      .leftJoinAndSelect('article.user', 'user')
-      .select([
-        'user.id',
-        'user.firstName',
-        'user.lastName',
-        'article.id',
-        'article.title',
-        'article.description',
-        'article.createdAt',
-      ])
-      .where('user.id = :id', { id })
-      .skip(skip)
-      .take(realPerPage)
-      .getManyAndCount();
+    const cacheKey = `author:${id}: page:${realPage}: perPage${realPerPage}`;
+    const cachedData = await this.redisCacheService.get(cacheKey);
 
-    if (!authorWithArticles.length) {
-      throw new NotFoundException('У пользователя нет статей!');
+    if (cachedData) {
+      return cachedData;
+    } else {
+      const [authorWithArticles, totalCount] = await this.articleRepository
+        .createQueryBuilder('article')
+        .leftJoinAndSelect('article.user', 'user')
+        .select([
+          'user.id',
+          'user.firstName',
+          'user.lastName',
+          'article.id',
+          'article.title',
+          'article.description',
+          'article.createdAt',
+        ])
+        .where('user.id = :id', { id })
+        .skip(skip)
+        .take(realPerPage)
+        .getManyAndCount();
+
+      if (!authorWithArticles.length) {
+        throw new NotFoundException('У пользователя нет статей!');
+      }
+
+      const result = {
+        data: authorWithArticles,
+        totalCount,
+        currentPage: realPage,
+        perPage: realPerPage,
+        totalPages: Math.ceil(totalCount / realPerPage),
+      };
+
+      await this.redisCacheService.set(cacheKey, result);
+
+      return result;
     }
-
-    return {
-      data: authorWithArticles,
-      totalCount,
-      currentPage: realPage,
-      perPage: realPerPage,
-      totalPages: Math.ceil(totalCount / realPerPage),
-    };
   }
 }
