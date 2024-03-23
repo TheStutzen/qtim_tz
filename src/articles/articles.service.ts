@@ -8,7 +8,7 @@ import { UpdateArticleDto } from './dto/update-article.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Article } from './entities/article.entity';
 import { Repository } from 'typeorm';
-import { RedisCacheService } from 'src/redis/redis.service';
+import { RedisCacheService } from 'src/utils/redis/redis.service';
 
 @Injectable()
 export class ArticlesService {

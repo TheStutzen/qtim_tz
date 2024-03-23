@@ -1,13 +1,29 @@
-import { IsNotEmpty, IsOptional } from 'class-validator';
-import { User } from 'src/users/entities/user.entity';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import {
+  IsNumber,
+  IsOptional,
+  IsString,
+  ValidateNested,
+} from 'class-validator';
 
+class UserIdDto {
+  @ApiProperty()
+  @IsNumber()
+  id: number;
+}
 export class CreateArticleDto {
-  @IsNotEmpty()
+  @ApiProperty()
+  @IsString()
   title: string;
 
-  @IsNotEmpty()
+  @ApiProperty()
+  @IsString()
   description: string;
 
+  @ApiPropertyOptional({ type: UserIdDto })
+  @Type(() => UserIdDto)
+  @ValidateNested()
   @IsOptional()
-  user?: User;
+  user?: UserIdDto;
 }
